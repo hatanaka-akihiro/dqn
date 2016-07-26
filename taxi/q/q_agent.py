@@ -16,7 +16,7 @@ class QAgent(object):
             "learning_rate" : 0.1,
             "eps": 0.05,            # Epsilon in epsilon greedy policies
             "discount": 0.95,
-            "n_iter": 100000}        # Number of iterations
+            "n_iter": 10000}        # Number of iterations
         self.config.update(userconfig)
         self.q = defaultdict(lambda: [0.0]*self.action_n)
 
