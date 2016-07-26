@@ -5,7 +5,7 @@ env = gym.make('FrozenLake-v0')
 print(env.action_space)
 print(env.observation_space)
 
-agent = QAgent(env.observation_space, env.action_space, n_iter=100000);
+agent = QAgent(env.observation_space, env.action_space);
 agent.learn(env)
 success = 0
 for i_episode in range(100):
