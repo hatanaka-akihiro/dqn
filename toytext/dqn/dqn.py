@@ -4,7 +4,6 @@ import chainer.functions as F
 import chainer.links as L
 from chainer import optimizers
 from chainer import serializers
-from chainer import cuda
 import os
 from collections import namedtuple
 
@@ -18,13 +17,13 @@ class Q(chainer.Chain):
     hidden = 16
 
     def __init__(self, hidden, action_count):
-        cuda.init()
         self.hidden = hidden
         self.action_count = action_count
         super(Q, self).__init__(
-            l1=L.Linear(self.D, hidden, wscale=np.sqrt(hidden)).to_gpu(),
-            l2=L.Linear(hidden, hidden, wscale=np.sqrt(hidden)).to_gpu(),
-            l3=L.Linear(hidden, action_count, wscale=np.sqrt(action_count)).to_gpu()
+            l1=L.Linear(self.D, hidden, wscale=np.sqrt(hidden)),
+            l2=L.Linear(hidden, hidden, wscale=np.sqrt(hidden)),
+            l3=L.Linear(hidden, action_count, wscale=np.sqrt(action_count),
+			initialW=np.zeros((action_count, hidden), dtype=np.float32)),
         )
 
     def clone(self):
@@ -53,9 +52,8 @@ class Agent():
             action = self.actions[np.random.randint(0, len(self.actions))]
             is_greedy = False
         else:
-            action = np.argmax(qv).__int__()
-            #print(action)
-        #print("action type:{} is_greedy:{}".format(type(action), is_greedy))
+            action = np.argmax(qv)
+        #print("action:{} is_greedy:{}".format(action, is_greedy))
         return action, is_greedy
 
 
@@ -63,11 +61,11 @@ class Trainer():
     def __init__(self,
                     gamma=0.99,
                     memory_size=1000,
-                    batch_size=10000,
+                    batch_size=100,
                     learning_rate=1e-4,
                     decay_rate=0.99,
-                    initial_epsilon=0.2,
-                    epsilon_decay=1.0/10**3,
+                    initial_epsilon=0.5,
+                    epsilon_decay=1.0/10**4,
                     minimum_epsilon=0.1):
         self.gamma = gamma  # discount factor for reward
         self.memory_size = memory_size
@@ -87,14 +85,14 @@ class Trainer():
     def act(cls, observation, q_model, agent, prev=None):
         #s, merged = cls._make_input(observation, prev)
         s = cls._make_input(observation)
-        qv = q_model.forward(chainer.Variable(cuda.to_gpu(np.array([s]))))
+        qv = q_model.forward(chainer.Variable(np.array([s])))
         action, is_greedy = agent.action(qv.data.flatten())
         return s, action, is_greedy, np.max(qv.data)
 
     @classmethod
     def print_model(cls, observation, q_model):
         s = cls._make_input(observation)
-        qv = q_model.forward(chainer.Variable(cuda.to_gpu(np.array([s]))))
+        qv = q_model.forward(chainer.Variable(np.array([s])))
         print("{}={}".format(observation, qv.data))
 
     @classmethod
@@ -120,24 +118,30 @@ class Trainer():
         next_states = shuffle(next_states)
         rewards = shuffle(rewards)
         dones = shuffle(dones)
+        #print("states:{}".format(states))
+        #print("actions:{}".format(actions))
+        #print("next_states:{}".format(next_states))
+        #print("rewards:{}".format(rewards))
+        #print("dones:{}".format(dones))
 
-        v_states = chainer.Variable(cuda.to_gpu(states))
-        v_next_states = chainer.Variable(cuda.to_gpu(next_states))
+        v_states = chainer.Variable(states)
+        v_next_states = chainer.Variable(next_states)
 
         qv = q_model.forward(v_states)
+	#print("qv:{}".format(qv.data))
         max_qv_next = np.max(teacher.forward(v_next_states).data, axis=1)
         target = qv.data.copy()
-        teacher_qv = np.sign(rewards)
+        #teacher_qv = np.sign(rewards)
+        teacher_qv = rewards
         for i, action in enumerate(actions):
-            if dones[i]:
+            if dones[i] == False:
                 teacher_qv[i] += self.gamma * max_qv_next[i]
             target[i, action] = teacher_qv[i]
+	#print("target:{}".format(target))
 
         td = chainer.Variable(target) - qv
-        #td_clip = td.data * (abs(td.data) <= 1) + 1.0 * (abs(td.data) > 1)
-        #td_clip = chainer.Variable(td_clip.astype(np.float32))
-        zeros = chainer.Variable(cuda.to_gpu(np.zeros(td.data.shape, dtype=np.float32)))
-        #loss = F.mean_squared_error(td_clip, zeros)
+	#print("td:{}".format(td.data))
+        zeros = chainer.Variable(np.zeros(td.data.shape, dtype=np.float32))
         loss = F.mean_squared_error(td, zeros)
         return loss
 
@@ -170,9 +174,6 @@ class Trainer():
 
             # execute action and get new observation
             observation, reward, done, info = env.step(a)
-            if done and reward == 0.0:
-                reward = -1.0
-            #print("action={0} by {1}. reward={2}".format(a, "greedy(qvalue={0})".format(q_max) if is_g else "random", reward))
             episode_reward += reward
 
             # momory it
@@ -191,7 +192,7 @@ class Trainer():
               rs[index] = reward
               dones[index] = done
 
-            if step > 10:
+            if step % self.batch_size == 0:
               self.optimizer.zero_grads()
               loss = self.calculate_loss(q_model, teacher, ss, acs, ns, rs, dones)
               loss.backward()
@@ -200,8 +201,8 @@ class Trainer():
             if step % self.batch_size == 0:
                 teacher.copyparams(q_model)
                 step = 0
-                print("q_model update")
                 serializers.save_npz(self.model_path(), q_model)
+                print("q_model update")
 
             if done:
                 episode_count += 1
