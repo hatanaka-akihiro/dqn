@@ -80,7 +80,7 @@ class Trainer():
 
     @classmethod
     def model_path(cls):
-        return os.path.join(os.path.dirname(__file__), "model.backup")
+        return os.path.join(os.path.dirname(__file__), "training.model")
 
     @classmethod
     def act(cls, observation, q_model, agent, prev=None):
