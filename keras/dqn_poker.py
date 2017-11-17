@@ -1,6 +1,4 @@
-import numpy as np
-import gym
-import gym.spaces
+from poker import Poker
 
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Flatten
@@ -9,85 +7,6 @@ from keras.optimizers import Adam
 from rl.agents.dqn import DQNAgent
 from rl.policy import EpsGreedyQPolicy
 from rl.memory import SequentialMemory
-
-class Deck():
-	CARDS = []
-
-	def __init__(self):
-		self.reset()
-	
-	def getCards(num):
-		cards = [];
-		for i in range(num):
-			cards.push(getCard())
-		return arrayToNum(cards)
-
-	def getCard():
-		while(true):
-			card = np.rand(len(CARDS))
-			if CARDS[card] == 0:
-				CARDS[card] == 1
-				return card
-	
-	def reset():
-		CARDS = np.zeros(13 * 4)
-
-	def draw(cards, changes):
-		cards = numToArray(cards)
-		changes = numToArray(changes)	
-		for i in changes:
-			cards[i] = getCard()
-		return arrayToNum(cards)
-
-	def getScore(cards):
-		cards = numToArray(cards)
-		pears = np.zeros(13)
-		for i in cards:
-			num = i % 13
-			pears[num]++
-		score = 0
-		for i in pears:
-			if i > 1:
-				score+=i*10
-		return score
-
-        def numToArray(num, length):
-                cards = [];
-                for i in range(length).reverse():
-                        if num >= 2^i:
-                                cards.push(i)
-                                num -= 2^i
-1               return cards;
-
-	def arrayToNum(array, length):
-		num = 0
-		for i in array:
-			num += 2^i
-		return num
-
-
-# 直線上を動く点の速度を操作し、目標(原点)に移動させることを目標とする環境
-class Poker(gym.core.Env):
-    def __init__(self):
-        self.action_space = gym.spaces.Discrete(2^5) 
-        self.observation_space = gym.spaces.Discrete(2^62) #62C5
-        self._deck = Deck()
-
-    # 各stepごとに呼ばれる
-    # actionを受け取り、次のstateとreward、episodeが終了したかどうかを返すように実装
-    def _step(self, action):
-        self._cards = self._deck.draw(self._cards, action) 
-
-	reward = self._deck.getScore(self._cards)
-	done = true
-        return self._cards, reward, done, {}
-
-    # 各episodeの開始時に呼ばれ、初期stateを返すように実装
-    def _reset(self):
-        # 初期stateは、位置はランダム、速度ゼロ
-	self._deck.reset()
-        self._cards = self._deck.getCards(5)
-	return self._cards
 
 env = Poker()
 nb_actions = env.action_space.n

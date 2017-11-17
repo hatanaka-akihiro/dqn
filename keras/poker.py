@@ -19,13 +19,15 @@ class Deck():
 
 	def getCard(self):
 		while(True):
-			card = np.random.randint(0, len(self.CARDS))
-			if self.CARDS[card] == 0:
-				self.CARDS[card] == 1
+			card = np.random.randint(0, NUM_OF_CARDS)
+			bit = 0b1 << card
+			if self.CARDS & bit == 0b0:
+				self.CARDS = self.CARDS | bit
+				print('getCard: %02d' % card)
 				return card
 	
 	def reset(self):
-		self.CARDS = np.zeros(13 * 4)
+		self.CARDS = 0b0
 
 	def draw(self, cards, changes):
 		cards = self.__numToArray(cards)
@@ -48,34 +50,33 @@ class Deck():
 	
 	def __numToArray(self, num, length = NUM_OF_CARDS):
 		cards = []
-		for i in range(length).reverse():
-                        if num >= 2^i:
-                                cards.push(i)
-                                num -= 2^i
+		for i in range(length):
+			bit = 0b1 << i
+			if bit == num & bit:
+				cards.append(i)
 		cards.sort()
+		print(cards)
 		return cards
 
 	def __arrayToNum(self, array, length = NUM_OF_CARDS):
-		num = 0
+		num = 0b0
 		for i in array:
-			num += 2^i
+			num = num | 0b1 << i
 		return num
 
 	def printCards(self, cards):
 		cards = self.__numToArray(cards)
 		for i in cards:
-			mark = i/13
+			mark = int(i / 13)
 			num = i%13 + 1
-			print(Deck.MARKS[mark])
-			print(num)
-			print('-')
-		print('\n')
+			print('%c%02d' % (Deck.MARKS[mark], num), end=' ')
+		print()
 
 # 直線上を動く点の速度を操作し、目標(原点)に移動させることを目標とする環境
 class Poker(gym.core.Env):
     def __init__(self):
-        self.action_space = gym.spaces.Discrete(2^5) 
-        self.observation_space = gym.spaces.Discrete(2^62) #62C5
+        self.action_space = gym.spaces.Discrete(5) 
+        self.observation_space = gym.spaces.Discrete(NUM_OF_CARDS)
         self._deck = Deck()
 
     # 各stepごとに呼ばれる
@@ -96,3 +97,4 @@ class Poker(gym.core.Env):
 deck = Deck()
 cards = deck.getCards(5)
 deck.printCards(cards)
+print("score: %d" % deck.getScore(cards))
