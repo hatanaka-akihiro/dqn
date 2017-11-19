@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import gym
 import gym.spaces
@@ -64,16 +65,17 @@ class Deck():
 			cards[i] += 1
 		return cards
 
-	def printCards(self, cards):
+	def toString(self, outfile, cards):
 		for i in range(len(cards)):
 			if cards[i] == 1:
 				mark = int(i / 13)
 				num = i%13 + 1
-				print('%c%02d' % (Deck.MARKS[mark], num), end=' ')
-		print()
+				outfile.write('%c%02d ' % (Deck.MARKS[mark], num))
+		outfile.write('\n')
 
 # 直線上を動く点の速度を操作し、目標(原点)に移動させることを目標とする環境
 class Poker(gym.core.Env):
+    metadata = {'render.modes': ['human']}
     def __init__(self):
         self.action_space = gym.spaces.MultiBinary(5) 
         self.observation_space = gym.spaces.MultiBinary(NUM_OF_CARDS)
@@ -82,6 +84,8 @@ class Poker(gym.core.Env):
     # 各stepごとに呼ばれる
     # actionを受け取り、次のstateとreward、episodeが終了したかどうかを返すように実装
     def _step(self, action):
+        self.render()
+        print(action)
         self._cards = self._deck.draw(self._cards, action) 
         reward = self._deck.getScore(self._cards)
         done = True
@@ -91,7 +95,17 @@ class Poker(gym.core.Env):
     def _reset(self):
         self._deck.reset()
         self._cards = self._deck.getCards(5)
+        self.render()
         return self._cards
+
+    def _render(self, mode='human', close=False):
+        if close:
+            return
+        # outfile = StringIO() if mode == 'ansi' else sys.stdout
+        outfile = sys.stdout
+        self._deck.toString(outfile, self._cards)
+        if mode != 'human':
+            return outfile
 
 # deck = Deck()
 # cards = deck.getCards(5)
@@ -102,4 +116,6 @@ class Poker(gym.core.Env):
 
 poker = Poker()
 poker.reset()
-print(poker.step([0, 1, 0, 1, 0]))
+poker.step([0, 1, 0, 1, 0])
+poker.render(mode='human')
+poker.render(close=True)
