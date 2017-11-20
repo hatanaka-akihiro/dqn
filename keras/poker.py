@@ -10,7 +10,7 @@ class Deck():
 
 	def __init__(self):
 		self.reset()
-		print(self.CARDS)
+		#print(self.CARDS)
 	
 	def getCards(self, num):
 		cards = self.__resetCards(NUM_OF_CARDS)
@@ -24,7 +24,7 @@ class Deck():
 			card = np.random.randint(0, NUM_OF_CARDS)
 			if self.CARDS[card] == 0:
 				self.CARDS[card] += 1
-				print('getCard: %02d' % card)
+				# print('getCard: %02d' % card)
 				return card
 	
 	def reset(self):
@@ -32,7 +32,7 @@ class Deck():
 
 	def draw(self, cards, changes):
 		cards = self.__toNums(cards)
-		changes = self.__toNums(changes)	
+		changes = self.__bitsToNums(changes, len(cards))
 		for i in changes:
 			cards[i] = self.getCard()
 		return self.__fromNum(cards)
@@ -56,7 +56,7 @@ class Deck():
 		for i in range(len(cards)):
 			if cards[i] != 0:
 				nums.append(i)
-		print(nums)
+		#print(nums)
 		return nums
 
 	def __fromNum(self, nums, length = NUM_OF_CARDS):
@@ -64,6 +64,14 @@ class Deck():
 		for i in nums:
 			cards[i] += 1
 		return cards
+	
+	def __bitsToNums(self, bits, length):
+		nums = []
+		for i in range(length):
+			bit = 0b1 << i
+			if bits & bit == bit:
+				nums.append(i)
+		return nums
 
 	def toString(self, outfile, cards):
 		for i in range(len(cards)):
@@ -77,7 +85,7 @@ class Deck():
 class Poker(gym.core.Env):
     metadata = {'render.modes': ['human']}
     def __init__(self):
-        self.action_space = gym.spaces.MultiBinary(5) 
+        self.action_space = gym.spaces.Discrete(2 ^ 5)
         self.observation_space = gym.spaces.MultiBinary(NUM_OF_CARDS)
         self._deck = Deck()
 
@@ -85,9 +93,11 @@ class Poker(gym.core.Env):
     # actionを受け取り、次のstateとreward、episodeが終了したかどうかを返すように実装
     def _step(self, action):
         self.render()
-        print(action)
+        print("action: %d" % action)
         self._cards = self._deck.draw(self._cards, action) 
         reward = self._deck.getScore(self._cards)
+        self.render()
+        print("reward: %d" % reward)
         done = True
         return self._cards, reward, done, {}
 
@@ -95,7 +105,6 @@ class Poker(gym.core.Env):
     def _reset(self):
         self._deck.reset()
         self._cards = self._deck.getCards(5)
-        self.render()
         return self._cards
 
     def _render(self, mode='human', close=False):
@@ -116,6 +125,4 @@ class Poker(gym.core.Env):
 
 poker = Poker()
 poker.reset()
-poker.step([0, 1, 0, 1, 0])
-poker.render(mode='human')
-poker.render(close=True)
+poker.step(10)
