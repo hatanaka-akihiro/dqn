@@ -14,15 +14,29 @@ class Deck():
 		#print(self.CARDS)
 	
 	def getCards(self, num):
+		"""
+		指定枚数カードを配る
+		2次元配列で返す
+		[[1枚目の記号, 1枚目の数字], [2枚目の記号, 2枚目の数字],...]
+		"""
 		cards = []
 		for i in range(num):
 			suit, num = self.getCard()
 			cards.append([suit, num])
-		# 数字順に並べる
+		return self.__sortCards(cards)
+
+	def __sortCards(self, cards):
+		"""
+		カードを数字の昇順に並べる
+		"""
 		cards.sort(key = lambda x:x[1])
 		return cards
 
 	def getCard(self):
+		"""
+		カードを1枚配る
+		記号 (0-3) と数字(0-12) を返す
+		"""
 		while(True):
 			card = np.random.randint(0, NUM_OF_CARDS)
 			if self.CARDS[card] == 0:
@@ -34,17 +48,26 @@ class Deck():
 		self.CARDS = self.__resetCards(NUM_OF_CARDS)
 
 	def draw(self, cards, changes):
-		for i in changes:
-			suit, num = self.getCard()
-			cards[i] = [suit, num]
-		# 数字順に並べる
-		cards.sort(key = lambda x:x[1])
-		return cards
+		"""
+		指定のカードを捨てて、新しいカードを配る
+		cards : 手持ちのカード
+		changes : 捨てるカードを2進数で指定。iビット目が1の場合、i枚目を捨てる。0b11100 の場合、3-5枚目を捨てる。
+		return : 捨てたカードに、新しいカードを加えて返す。getCards() と同じ。
+		"""
+		for i in range(len(cards)):
+			check = 0b1 << i
+			if check & changes == check:
+				suit, num = self.getCard()
+				cards[i] = [suit, num]
+		return self.__sortCards(cards)
 
 	def getScore(self, cards):
+		"""
+		カードの点数を計算して返す
+		"""
 		pears = self.__resetCards(13)
-		for i in self.__toNums(cards):
-			num = cards[i][1]
+		for card in cards:
+			num = card[1]
 			pears[num] += 1
 		score = 0
 		two = 0
@@ -75,19 +98,14 @@ class Deck():
 		return np.zeros(length, dtype=np.int)
 	
 	def toString(self, outfile, cards):
-		for i in range(len(cards)):
-			suit = cards[i][0]
-			num = cards[i][1]
+		"""
+		カードを outfile に出力する
+		"""
+		for card in cards:
+			suit = card[0]
+			num = card[1]
 			outfile.write('%c%02d ' % (Deck.MARKS[suit], num + 1))
 		outfile.write('\n')
-
-	def __toNums(self, cards):
-		nums = []
-		for i in range(len(cards)):
-			if cards[i] != 0:
-				nums.append(i)
-		#print(nums)
-		return nums
 		
 class Poker(gym.core.Env):
 	metadata = {'render.modes': ['human']}
@@ -100,20 +118,19 @@ class Poker(gym.core.Env):
 	# actionを受け取り、次のstateとreward、episodeが終了したかどうかを返すように実装
 	def _step(self, action):
 		self.render()
-		changes = self.__bitsToNums(action, 5)
-		print("changes: %s" % changes)
-		self._cards = self._deck.draw(self._cards, changes)
+		print("changes: %s" % format(action, 'b')[::-1])
+		self._cards = self._deck.draw(self._cards, action)
 		reward = self._deck.getScore(self._cards)
 		self.render()
 		print("reward: %d" % reward)
 		done = True
-		return self.getCards(), reward, done, {}
+		return self.__convertCards(), reward, done, {}
 
 	# 各episodeの開始時に呼ばれ、初期stateを返すように実装
 	def _reset(self):
 		self._deck.reset()
 		self._cards = self._deck.getCards(5)
-		return self.getCards()
+		return self.__convertCards()
 
 	def _render(self, mode='human', close=False):
 		if close:
@@ -124,7 +141,10 @@ class Poker(gym.core.Env):
 		if mode != 'human':
 			return outfile
 	
-	def getCards(self):
+	def __convertCards(self):
+		"""
+		手持ちのカードを表す self._cards (2次元配列) を1次元配列に変換して返す
+		"""
 		return [flatten for inner in self._cards for flatten in inner]
 
 	def __bitsToNums(self, bits, length):
@@ -143,6 +163,6 @@ class Poker(gym.core.Env):
 #deck.toString(outfile, cards)
 #print("score: %d" % deck.getScore(cards))
 
-poker = Poker()
-poker.reset()
-poker.step(10)
+#poker = Poker()
+#poker.reset()
+#poker.step(10)
