@@ -114,16 +114,34 @@ class Poker(gym.core.Env):
 		self.observation_space = gym.spaces.MultiDiscrete([[0,3],[0,12], [0,3],[0,12], [0,3],[0,12], [0,3],[0,12], [0,3],[0,12]])
 		self._deck = Deck()
 
-	# 各stepごとに呼ばれる
-	# actionを受け取り、次のstateとreward、episodeが終了したかどうかを返すように実装
 	def _step(self, action):
+		"""
+		各stepごとに呼ばれる
+		actionを受け取り、次のstateとreward、episodeが終了したかどうかを返すように実装
+		"""
+		
 		self.render()
+
+		# カード交換前の報酬を計算
+		prev_reward = self._getScore()
+
+		# カード交換
 		print("changes: %s" % format(action, 'b')[::-1])
 		self._cards = self._deck.draw(self._cards, action)
-		reward = self._deck.getScore(self._cards)
 		self.render()
+		
+		# カード交換後の報酬を計算
+		reward = self._getScore()
+
+		# 交換によって報酬が下がったら、マイナスにする		
+		if prev_reward > reward:
+			reward = reward - prev_reward
+
 		print("reward: %d" % reward)
+
+		# 常に終了
 		done = True
+
 		return self.__convertCards(), reward, done, {}
 
 	# 各episodeの開始時に呼ばれ、初期stateを返すように実装
@@ -131,6 +149,9 @@ class Poker(gym.core.Env):
 		self._deck.reset()
 		self._cards = self._deck.getCards(5)
 		return self.__convertCards()
+	
+	def _getScore(self):
+		return self._deck.getScore(self._cards)
 
 	def _render(self, mode='human', close=False):
 		if close:
@@ -146,14 +167,6 @@ class Poker(gym.core.Env):
 		手持ちのカードを表す self._cards (2次元配列) を1次元配列に変換して返す
 		"""
 		return [flatten for inner in self._cards for flatten in inner]
-
-	def __bitsToNums(self, bits, length):
-		nums = []
-		for i in range(length):
-			bit = 0b1 << i
-			if bits & bit == bit:
-				nums.append(i)
-		return nums
 
 #outfile = sys.stdout
 #deck = Deck()
